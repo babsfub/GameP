@@ -130,7 +130,7 @@
             </div>
             <div class="flex items-center gap-2">
               <span class="text-sm text-gray-400">💎</span>
-              <span class="text-sm font-medium">{game.minStake} MATIC min</span>
+              <span class="text-sm font-medium">{game.minStake} POL min</span>
             </div>
           </div>
         </div>
