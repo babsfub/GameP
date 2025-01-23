@@ -102,10 +102,10 @@
 
 <div class="stake-manager">
   <div class="stake-selector">
-    <h3>Select Stake (ETH)</h3>
+    <h3>Select Stake (POL)</h3>
     {#if gameConfig}
       <div class="game-info">
-        <span>Min Stake: {safeFormatEther(gameConfig?.minStake)} ETH</span>
+        <span>Min Stake: {safeFormatEther(gameConfig?.minStake)} POL</span>
         <span>Fee: {safeGetPlatformFee()}%</span>
       </div>
     {/if}
@@ -117,7 +117,7 @@
           onclick={() => selectedStake = stake}
           disabled={disabled || submitting}
         >
-          {stake} ETH
+          {stake} POL
         </button>
       {/each}
       <button

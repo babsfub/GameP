@@ -166,13 +166,13 @@
       <div class="leaderboard-info-item">
         <span class="leaderboard-label">Prize Pool</span>
         <span class="leaderboard-value leaderboard-value-prize">
-          {formatEther(currentRound.totalPrizePool * BigInt(100 - Number(gameConfig?.platformFee ?? 0)) / 100n)} ETH
+          {formatEther(currentRound.totalPrizePool * BigInt(100 - Number(gameConfig?.platformFee ?? 0)) / 100n)} POL
         </span>
       </div>
       <div class="leaderboard-info-item">
         <span class="leaderboard-label">Min Stake</span>
         <span class="leaderboard-value">
-          {formatEther(currentRound.minStake)} ETH
+          {formatEther(currentRound.minStake)} POL
         </span>
       </div>
       <div class="leaderboard-info-item">
@@ -219,7 +219,7 @@
               {/if}
               <td class="player-address">{player.slice(0, 6)}...{player.slice(-4)}</td>
               <td>{score.toString()}</td>
-              <td>{formatEther(stake)} ETH</td>
+              <td>{formatEther(stake)} POL</td>
               <td>
                 <span class="leaderboard-status {verified ? 'verified' : ''}">
                   {verified ? 'Verified' : 'Pending'}

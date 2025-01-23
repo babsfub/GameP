@@ -22,7 +22,7 @@
       minStake: 0,
       maxScore: 100,
       currentPlayers: 0,
-      prize: '0 ETH',
+      prize: '0 POL',
       gradient: 'from-emerald-400 to-cyan-500',
       imagePath: '/images/games/snake.webp',
       active: false
@@ -35,7 +35,7 @@
       minStake: 0,
       maxScore: 200,
       currentPlayers: 0,
-      prize: '0 ETH',
+      prize: '0 POL',
       gradient: 'from-purple-500 to-pink-500',
       imagePath: '/images/games/tetris.webp',
       active: false
@@ -64,7 +64,7 @@
           // Mettre à jour les stats du jeu
           game.active = true;
           game.minStake = Number(formatEther(config.minStake));
-          game.prize = `${formatEther(totalPrizeWithoutFees)} ETH`;
+          game.prize = `${formatEther(totalPrizeWithoutFees)} POL`;
           game.currentPlayers = scores.length;
 
           // Accumuler les totaux (prize pool après frais)
@@ -80,7 +80,7 @@
     // Mettre à jour les stats globales
     stats = {
       activePlayers: totalPlayers,
-      totalPrizePool: `${formatEther(totalPrizePool)} ETH`,
+      totalPrizePool: `${formatEther(totalPrizePool)} POL`,
       gamesPlayed: totalGames
     };
 

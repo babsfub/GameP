@@ -331,7 +331,7 @@ function handleTouch(action: string) {
 
           const stakeInWei = parseEther(stake);
           if (stakeInWei < gameConfig.minStake) {
-          throw new Error(`Minimum stake required: ${formatEther(gameConfig.minStake)} ETH`);
+          throw new Error(`Minimum stake required: ${formatEther(gameConfig.minStake)} POL`);
           }
 
           const scoreHash = engine.get_score_hash(
