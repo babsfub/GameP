@@ -23,9 +23,9 @@
     scoreHash: `0x${string}`;
     verifier: Address;
     level?: bigint;       
-    lines: number;     
-    moves_count: number; 
-    moves_hash: string; 
+    lines?: number;     
+    moves_count?: number; 
+    moves_hash?: string; 
     }
 
     type RoundInfo = {
@@ -130,7 +130,7 @@
             const isValid = engine.verify_score(
                 storedHashBytes,
                 score.player,
-                score.blockNumber.toString(),
+                score.blockNumber,
                 gameConfig.saltKey
             );
 

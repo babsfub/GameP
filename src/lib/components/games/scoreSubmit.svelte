@@ -18,7 +18,7 @@
   let selectedStake = $state('0.001')
   let submitting = $state(false)
   let error = $state<string | null>(null)
-  let stakeOptions = $state<string[]>([ '0.05', '0.1'])
+  let stakeOptions = $state<string[]>([ '0.5', '1'])
   let gameConfig = $state<GameConfig | null>(null)
   let scoreHash = $state<string | null>(null)
 
