@@ -1,154 +1,153 @@
 <!-- src/lib/components/LeaderBoard.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { formatEther, type Address } from 'viem';
-  import { readContract } from '$lib/contracts/actions.js';
-  import type { Game } from '$lib/types/games.js';
+import { formatEther, type Address } from 'viem';
+import { readContract } from '$lib/contracts/actions.js';
+import type { Game, GameConfig } from '$lib/types/games.js';
 
-  // Types
-  type Score = {
-    player: Address;
-    score: bigint;
-    blockNumber: bigint;
-    verified: boolean;
-    stake: bigint;
-    scoreHash: `0x${string}`;
-    verifier: Address;
-    game?: Game;
-  };
+type Score = {
+  player: Address;
+  score: bigint;
+  blockNumber: bigint;
+  verified: boolean;
+  stake: bigint;
+  scoreHash: `0x${string}`;
+  verifier: Address;
+  game?: Game;
+};
 
-  type RoundInfo = {
-    roundId: bigint;
-    startTime: bigint;
-    endTime: bigint;
-    active: boolean;
-    totalPrizePool: bigint;
-    minStake: bigint;
-  };
+type RoundInfo = {
+  roundId: bigint;
+  startTime: bigint;
+  endTime: bigint;
+  active: boolean;
+  totalPrizePool: bigint;
+  minStake: bigint;
+};
 
-  let { selectedGame = 'all' } = $props<{ selectedGame: Game | 'all' }>();
+let { selectedGame = 'all' } = $props<{ selectedGame: Game | 'all' }>();
 
-  // State
-  let currentRound = $state<RoundInfo>({
-    roundId: 0n,
-    startTime: 0n,
-    endTime: 0n,
-    active: false,
-    totalPrizePool: 0n,
-    minStake: 0n
-  });
-  
-  let gameScores = $state<Score[]>([]);
-  let loading = $state(true);
-  let error = $state<string | null>(null);
+let currentRound = $state<RoundInfo>({
+  roundId: 0n,
+  startTime: 0n,
+  endTime: 0n,
+  active: false,
+  totalPrizePool: 0n,
+  minStake: 0n
+});
 
-  function calculateTimeLeft(round: RoundInfo): string {
-    const now = BigInt(Math.floor(Date.now() / 1000));
-    if (!round.active || round.endTime <= now) {
-      return 'Round ended';
-    }
+let gameScores = $state<Score[]>([]);
+let gameConfig = $state<GameConfig | null>(null);
+let loading = $state(true);
+let error = $state<string | null>(null);
 
-    const remaining = Number(round.endTime - now);
-    const hours = Math.floor(remaining / 3600);
-    const minutes = Math.floor((remaining % 3600) / 60);
+function calculateTimeLeft(round: RoundInfo): string {
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  if (!round.active || round.endTime <= now) return 'Round ended';
 
-    return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  const remaining = Number(round.endTime - now);
+  const hours = Math.floor(remaining / 3600);
+  const minutes = Math.floor((remaining % 3600) / 60);
+
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+async function fetchGameScores() {
+  if (selectedGame === 'all') {
+    await fetchAllGamesScores();
+    return;
   }
 
-  async function fetchGameScores() {
-    if (selectedGame === 'all') {
-      await fetchAllGamesScores();
+  try {
+    loading = true;
+    error = null;
+
+    const config = await readContract.getGameConfig(selectedGame);
+    gameConfig = config;
+    
+    if (!config.active) {
+      error = 'Game is not active';
       return;
     }
 
-    try {
-      loading = true;
-      error = null;
+    const round = await readContract.getGameRound(config.currentRound, selectedGame);
 
-      const config = await readContract.getGameConfig(selectedGame);
-      if (!config.active) {
-        error = 'Game is not active';
-        return;
-      }
+    currentRound = {
+      roundId: config.currentRound,
+      startTime: config.lastRoundStartTime,
+      endTime: round.basic.endTime,
+      active: config.active,
+      totalPrizePool: round.basic.totalPrizePool,
+      minStake: config.minStake
+    };
 
-      const round = await readContract.getGameRound(config.currentRound, selectedGame);
+    const scores = await readContract.getScoresByRound(
+      config.currentRound,
+      selectedGame,
+      false
+    );
 
-      currentRound = {
-        roundId: config.currentRound,
-        startTime: config.lastRoundStartTime,
-        endTime: round.basic.endTime,
-        active: config.active,
-        totalPrizePool: round.basic.totalPrizePool,
-        minStake: config.minStake
-      };
+    gameScores = scores
+      .map(score => ({
+        ...score,
+        score: BigInt(score.score),
+        stake: BigInt(score.stake),
+        blockNumber: BigInt(score.blockNumber)
+      }))
+      .sort((a, b) => Number(b.score - a.score));
+
+  } catch (err) {
+    console.error('Error fetching game scores:', err);
+    error = err instanceof Error ? err.message : 'Failed to load scores';
+  } finally {
+    loading = false;
+  }
+}
+
+async function fetchAllGamesScores() {
+  try {
+    loading = true;
+    error = null;
+    const games: Game[] = ['tetris', 'snake'];
+    let allScores: Score[] = [];
+
+    for (const game of games) {
+      const config = await readContract.getGameConfig(game);
+      if (!config.active) continue;
 
       const scores = await readContract.getScoresByRound(
         config.currentRound,
-        selectedGame,
+        game,
         false
       );
 
-      gameScores = scores
-        .map(score => ({
+      allScores = [...allScores, 
+        ...scores.map(score => ({
           ...score,
+          game,
           score: BigInt(score.score),
           stake: BigInt(score.stake),
           blockNumber: BigInt(score.blockNumber)
         }))
-        .sort((a, b) => Number(b.score - a.score));
-
-    } catch (err) {
-      console.error('Error fetching game scores:', err);
-      error = err instanceof Error ? err.message : 'Failed to load scores';
-    } finally {
-      loading = false;
+      ];
     }
+
+    gameScores = allScores.sort((a, b) => Number(b.score - a.score));
+  } catch (err) {
+    console.error('Error fetching all games scores:', err);
+    error = err instanceof Error ? err.message : 'Failed to load scores';
+  } finally {
+    loading = false;
   }
+}
 
-  async function fetchAllGamesScores() {
-    try {
-      loading = true;
-      error = null;
-      const games: Game[] = ['tetris', 'snake'];
-      let allScores: Score[] = [];
+$effect(() => {
+  fetchGameScores();
+  const timer = setInterval(fetchGameScores, 60000);
+  return () => clearInterval(timer);
+});
 
-      for (const game of games) {
-        const config = await readContract.getGameConfig(game);
-        if (!config.active) continue;
-
-        const scores = await readContract.getScoresByRound(
-          config.currentRound,
-          game,
-          false
-        );
-
-        allScores = [...allScores, 
-          ...scores.map(score => ({
-            ...score,
-            game,
-            score: BigInt(score.score),
-            stake: BigInt(score.stake),
-            blockNumber: BigInt(score.blockNumber)
-          }))
-        ];
-      }
-
-      gameScores = allScores.sort((a, b) => Number(b.score - a.score));
-    } catch (err) {
-      console.error('Error fetching all games scores:', err);
-      error = err instanceof Error ? err.message : 'Failed to load scores';
-    } finally {
-      loading = false;
-    }
-  }
-
-  $effect(() => {
-    fetchGameScores();
-    const timer = setInterval(fetchGameScores, 60000);
-    return () => clearInterval(timer);
-  });
-
-  onMount(fetchGameScores);
+onMount(fetchGameScores);
 </script>
 
 <div class="leaderboard-content">
