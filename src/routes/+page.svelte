@@ -1,36 +1,101 @@
 <!-- src/routes/+page.svelte -->
 <script lang="ts">
+  import { onMount } from 'svelte';
   import LeaderBoard from '$lib/components/LeaderBoard.svelte';
+  import { readContract } from '$lib/contracts/actions.js';
+  import { formatEther } from 'viem';
   import type { Game } from '$lib/types/games.js';
 
   let selectedGame = $state<Game | 'all'>('all');
+  let stats = $state({
+    activePlayers: 0,
+    totalPrizePool: '0',
+    gamesPlayed: 0
+  });
 
-  const games = [
+  let games = $state([
     {
       id: 'snake',
       title: 'Snake',
       description: 'Race against time and collect power-ups in this modern twist on the classic.',
       path: '/games/snake',
-      minStake: 10,
+      minStake: 0,
       maxScore: 100,
-      currentPlayers: 123,
-      prize: '0.1 ETH',
+      currentPlayers: 0,
+      prize: '0 ETH',
       gradient: 'from-emerald-400 to-cyan-500',
-      imagePath: '/images/games/snake.webp'
+      imagePath: '/images/games/snake.webp',
+      active: false
     },
     {
       id: 'tetris',
       title: 'Tetris',
       description: 'Stack blocks strategically in this enhanced version with special pieces.',
       path: '/games/tetris',
-      minStake: 20,
+      minStake: 0,
       maxScore: 200,
-      currentPlayers: 245,
-      prize: '0.2 ETH',
+      currentPlayers: 0,
+      prize: '0 ETH',
       gradient: 'from-purple-500 to-pink-500',
-      imagePath: '/images/games/tetris.webp'
+      imagePath: '/images/games/tetris.webp',
+      active: false
     }
-  ] as const;
+  ]);
+
+  async function updateGameStats() {
+    let totalPrizePool = 0n;
+    let totalPlayers = 0;
+    let totalGames = 0;
+
+    for (let game of games) {
+      try {
+        // Récupérer la config du jeu
+        const config = await readContract.getGameConfig(game.id);
+        const gameActive = config.active;
+        
+        // Si le jeu est actif, mettre à jour ses stats
+        if (gameActive) {
+          const round = await readContract.getGameRound(config.currentRound, game.id);
+          const scores = await readContract.getScoresByRound(config.currentRound, game.id, false);
+          
+          // Calculer le prize pool après les frais de plateforme
+          const totalPrizeWithoutFees = round.basic.totalPrizePool * BigInt(100 - Number(config.platformFee)) / 100n;
+          
+          // Mettre à jour les stats du jeu
+          game.active = true;
+          game.minStake = Number(formatEther(config.minStake));
+          game.prize = `${formatEther(totalPrizeWithoutFees)} ETH`;
+          game.currentPlayers = scores.length;
+
+          // Accumuler les totaux (prize pool après frais)
+          totalPrizePool += totalPrizeWithoutFees;
+          totalPlayers += scores.length;
+          totalGames++;
+        }
+      } catch (err) {
+        console.error(`Error fetching stats for ${game.id}:`, err);
+      }
+    }
+
+    // Mettre à jour les stats globales
+    stats = {
+      activePlayers: totalPlayers,
+      totalPrizePool: `${formatEther(totalPrizePool)} ETH`,
+      gamesPlayed: totalGames
+    };
+
+    // Forcer une mise à jour de l'état des jeux
+    games = [...games];
+  }
+
+  // Mettre à jour les stats toutes les minutes
+  $effect(() => {
+    updateGameStats();
+    const timer = setInterval(updateGameStats, 60000);
+    return () => clearInterval(timer);
+  });
+
+  onMount(updateGameStats);
 </script>
 
 <div class="min-h-screen px-screen-safe py-game mx-auto max-w-game">
@@ -44,9 +109,9 @@
     </p>
   </section>
 
-  <!-- Game Cards -->
+  <!-- Game Cards - Only show active games -->
   <section class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
-    {#each games as game}
+    {#each games.filter(game => game.active) as game}
       <a href={game.path} class="game-card">
         <div class="game-card-gradient bg-gradient-to-br {game.gradient}"></div>
         
@@ -77,9 +142,9 @@
   <section class="bg-glass rounded-game p-8 mb-16 slide-up">
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       {#each [
-        { label: 'Active Players', value: '345', icon: '👥' },
-        { label: 'Total Prize Pool', value: '2.5 ETH', icon: '🏆' },
-        { label: 'Games Played', value: '1.2K', icon: '🎮' }
+        { label: 'Active Players', value: stats.activePlayers, icon: '👥' },
+        { label: 'Total Prize Pool', value: stats.totalPrizePool, icon: '🏆' },
+        { label: 'Games Available', value: games.filter(g => g.active).length, icon: '🎮' }
       ] as stat}
         <div class="text-center">
           <span class="block text-2xl mb-2">{stat.icon}</span>
@@ -90,7 +155,7 @@
     </div>
   </section>
 
-  <!-- Game Selection & Leaderboard -->
+  <!-- Game Selection & Leaderboard - Only show active games -->
   <section class="mb-16">
     <div class="game-selector">
       <button 
@@ -99,7 +164,7 @@
       >
         All Games
       </button>
-      {#each games as game}
+      {#each games.filter(game => game.active) as game}
         <button 
           class="game-selector-button {selectedGame === game.id ? 'active' : ''}"
           onclick={() => selectedGame = game.id}
@@ -111,3 +176,4 @@
     <LeaderBoard {selectedGame} />
   </section>
 </div>
+
