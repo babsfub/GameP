@@ -334,25 +334,20 @@ function handleTouch(action: string) {
           throw new Error(`Minimum stake required: ${formatEther(gameConfig.minStake)} ETH`);
           }
 
-          // Utiliser la fonction get_score_hash avec les bons types pour Rust
           const scoreHash = engine.get_score_hash(
-          $wallet.address,                    // Rust attend une String
-          gameConfig.saltKey.toString(),      // Rust attend une String
-          BigInt(block.number)     // Rust attend un u64
+          $wallet.address,                    
+          gameConfig.saltKey.toString(),      
+          BigInt(block.number)    
           );
           console.log(Object.keys(engine));
-          // Vérification que le hash est valide
           if (!scoreHash || !scoreHash.length) {
           throw new Error('Failed to generate score hash');
           }
 
-          // Debug logging avant conversion
           console.log('Raw score hash:', scoreHash);
 
-          // Conversion en format hexadecimal avec préfixe 0x
           const scoreHashHex = `0x${Buffer.from(scoreHash).toString('hex')}` as `0x${string}`;
 
-          // Debug logging après conversion
           console.log('Score submission params:', {
           game: 'tetris',
           score: gameState.score.toString(),
@@ -387,68 +382,61 @@ function handleTouch(action: string) {
       }
     }
 
-// Cycle de vie du composant
     onMount(() => {
-    if (!browser) return;
+      if (!browser) return;
 
-    const initGame = async () => {
-        try {
-            // Initialiser WASM
-             // @ts-ignore
-            await init();
+      const initGame = async () => {
+          try {
+              // @ts-ignore
+              await init();
+              
+              if (!canvas) return;
             
-            if (!canvas) return;
-            
-            // Initialisation du canvas
-            ctx = canvas.getContext('2d')!;
-            canvas.width = BLOCK_SIZE * BOARD_WIDTH;
-            canvas.height = BLOCK_SIZE * BOARD_HEIGHT;
+              ctx = canvas.getContext('2d')!;
+              canvas.width = BLOCK_SIZE * BOARD_WIDTH;
+              canvas.height = BLOCK_SIZE * BOARD_HEIGHT;
 
-            // Créer le moteur de jeu
-            engine = new TetrisEngine(BOARD_WIDTH, BOARD_HEIGHT);
-            
-            // Ajouter les événements uniquement côté client
-            if (browser) {
-                window.addEventListener('keydown', handleKeydown);
-            }
-            
-            // Démarrer le jeu
-            engine.start();
-            updateGameState();
-            
-            // Démarrage de la boucle de jeu
-            const gameLoopCleanup = startGameLoop();
+              engine = new TetrisEngine(BOARD_WIDTH, BOARD_HEIGHT);
+              
+              if (browser) {
+                  window.addEventListener('keydown', handleKeydown);
+              }
+              
+              engine.start();
+              updateGameState();
+             
+              const gameLoopCleanup = startGameLoop();
 
-            return () => {
-                if (browser) {
-                    window.removeEventListener('keydown', handleKeydown);
-                    window.removeEventListener('keyup', handleKeyup);
-                }
-                gameLoopCleanup();
-                if (engine) {
-                    engine.free();
-                    engine = null;
-                }
-            };
-        } catch (err) {
-            console.error('Failed to initialize game:', err);
-            error = 'Failed to start game';
-            return () => {};
-        }
-    };
+              return () => {
+                  if (browser) {
+                      window.removeEventListener('keydown', handleKeydown);
+                      window.removeEventListener('keyup', handleKeyup);
+                  }
+                  gameLoopCleanup();
+                  if (engine) {
+                      engine.free();
+                      engine = null;
+                  }
+              };
+          } catch (err) {
+              console.error('Failed to initialize game:', err);
+              error = 'Failed to start game';
+              return () => {};
+          }
+      };
 
-    initGame();
-    return () => {
-        if (engine) {
-            engine.free();
-            engine = null;
-        }
-        if (browser) {
-            window.removeEventListener('keydown', handleKeydown);
-            window.addEventListener('keyup', handleKeyup);
-        }
-    };
-});
+      initGame();
+      return () => {
+          if (engine) {
+              engine.free();
+              engine = null;
+          }
+          if (browser) {
+              window.removeEventListener('keydown', handleKeydown);
+              window.addEventListener('keyup', handleKeyup);
+          }
+      };
+  });
     onDestroy(() => {
         if (engine) {
             engine.free();
@@ -466,7 +454,6 @@ function handleTouch(action: string) {
     <div class="game-container">
       <!-- Left Panel -->
       <div class="game-panel">
-        <!-- Score Stats -->
         <div class="stats-section">
           <div class="stats-grid">
             <div class="stat-item">
@@ -484,7 +471,6 @@ function handleTouch(action: string) {
           </div>
         </div>
   
-        <!-- Wallet Connection Info -->
         <div class="wallet-section">
           {#if !$wallet.address}
             <div class="wallet-warning">
