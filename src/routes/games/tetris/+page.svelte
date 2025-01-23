@@ -174,8 +174,8 @@
         if (!browser) return () => {};
         
         let frameId: number | null = null;
-        let lastTime = Date.now(); // Utilisons Date.now() au lieu de performance.now()
-        const updateInterval = 1000; // 1 seconde d'intervalle pour la chute
+        let lastTime = Date.now(); 
+        const updateInterval = 1000; 
 
         const gameLoop = () => {
             const currentTime = Date.now();
@@ -277,83 +277,114 @@ function handleKeyup(event: KeyboardEvent) {
     }
 }
 
-    // Soumission du score
+// Ajouter en haut du script
+function isMobile() {
+  return browser && (window.innerWidth <= 768 || 'ontouchstart' in window);
+}
+
+function handleTouch(action: string) {
+  if (!engine) return;
+  
+  switch(action) {
+    case 'left':
+      engine.move_piece(-1);
+      break;
+    case 'right': 
+      engine.move_piece(1);
+      break;
+    case 'down':
+      engine.start_soft_drop();
+      break;
+    case 'endDown':
+      engine.end_soft_drop();
+      break; 
+    case 'drop':
+      engine.hard_drop();
+      break;
+    case 'rotate':
+      engine.rotate();
+      break;
+  }
+  updateGameState();
+}
+
+    
     
     async function handleSubmitScore(stake: string) {
-    if (!engine || !$wallet.address || !gameState) {
-        console.error('Missing required data for score submission');
-        return;
-    }
-    
-    try {
-        submitting = true;
-        error = null;
+      if (!engine || !$wallet.address || !gameState) {
+          console.error('Missing required data for score submission');
+          return;
+      }
+      
+      try {
+          submitting = true;
+          error = null;
 
-        const [block, gameConfig] = await Promise.all([
-        publicClient.getBlock(),
-        contractActions.read.getGameConfig('tetris')
-        ]);
-        
-        if (!gameConfig || !gameConfig.saltKey) {
-        throw new Error('Could not get game configuration or salt key');
-        }
+          const [block, gameConfig] = await Promise.all([
+          publicClient.getBlock(),
+          contractActions.read.getGameConfig('tetris')
+          ]);
+          
+          if (!gameConfig || !gameConfig.saltKey) {
+          throw new Error('Could not get game configuration or salt key');
+          }
 
-        const stakeInWei = parseEther(stake);
-        if (stakeInWei < gameConfig.minStake) {
-        throw new Error(`Minimum stake required: ${formatEther(gameConfig.minStake)} ETH`);
-        }
+          const stakeInWei = parseEther(stake);
+          if (stakeInWei < gameConfig.minStake) {
+          throw new Error(`Minimum stake required: ${formatEther(gameConfig.minStake)} ETH`);
+          }
 
-        // Utiliser la fonction get_score_hash avec les bons types pour Rust
-        const scoreHash = engine.get_score_hash(
-        $wallet.address,                    // Rust attend une String
-        gameConfig.saltKey.toString(),      // Rust attend une String
-        BigInt(block.number)     // Rust attend un u64
-        );
-        console.log(Object.keys(engine));
-        // Vérification que le hash est valide
-        if (!scoreHash || !scoreHash.length) {
-        throw new Error('Failed to generate score hash');
-        }
+          // Utiliser la fonction get_score_hash avec les bons types pour Rust
+          const scoreHash = engine.get_score_hash(
+          $wallet.address,                    // Rust attend une String
+          gameConfig.saltKey.toString(),      // Rust attend une String
+          BigInt(block.number)     // Rust attend un u64
+          );
+          console.log(Object.keys(engine));
+          // Vérification que le hash est valide
+          if (!scoreHash || !scoreHash.length) {
+          throw new Error('Failed to generate score hash');
+          }
 
-        // Debug logging avant conversion
-        console.log('Raw score hash:', scoreHash);
+          // Debug logging avant conversion
+          console.log('Raw score hash:', scoreHash);
 
-        // Conversion en format hexadecimal avec préfixe 0x
-        const scoreHashHex = `0x${Buffer.from(scoreHash).toString('hex')}` as `0x${string}`;
+          // Conversion en format hexadecimal avec préfixe 0x
+          const scoreHashHex = `0x${Buffer.from(scoreHash).toString('hex')}` as `0x${string}`;
 
-        // Debug logging après conversion
-        console.log('Score submission params:', {
-        game: 'tetris',
-        score: gameState.score.toString(),
-        scoreHashHex,
-        stake,
-        blockNumber: block.number.toString()
-        });
+          // Debug logging après conversion
+          console.log('Score submission params:', {
+          game: 'tetris',
+          score: gameState.score.toString(),
+          scoreHashHex,
+          stake,
+          blockNumber: block.number.toString()
+          });
 
-        try {
-        const tx = await contractActions.write.submitScore({
-            game: 'tetris',
-            score: BigInt(gameState.score),
-            scoreHash: scoreHashHex,
-            stake,
-            account: $wallet.address as `0x${string}`
-        });
+          try {
+          const tx = await contractActions.write.submitScore({
+              game: 'tetris',
+              score: BigInt(gameState.score),
+              scoreHash: scoreHashHex,
+              stake,
+              account: $wallet.address as `0x${string}`
+          });
 
-        await publicClient.waitForTransactionReceipt({ hash: tx });
-        console.log('Score submitted successfully:', tx);
+          await publicClient.waitForTransactionReceipt({ hash: tx });
+          console.log('Score submitted successfully:', tx);
 
-        } catch (submitError) {
-        console.error('Transaction failed:', submitError);
-        error = submitError instanceof Error ? submitError.message : 'Transaction failed';
-        throw submitError;
-        }
+          } catch (submitError) {
+          console.error('Transaction failed:', submitError);
+          error = submitError instanceof Error ? submitError.message : 'Transaction failed';
+          throw submitError;
+          }
 
-    } catch (err) {
-        console.error('Error submitting score:', err);
-        error = err instanceof Error ? err.message : 'An unknown error occurred';
-    } finally {
-        submitting = false;
-    }
+      } catch (err) {
+          console.error('Error submitting score:', err);
+          error = err instanceof Error ? err.message : 'An unknown error occurred';
+      } finally {
+          submitting = false;
+      }
     }
 
 // Cycle de vie du composant
@@ -510,6 +541,31 @@ function handleKeyup(event: KeyboardEvent) {
               </div>
             </div>
           {/if}
+          <div class="touch-controls" class:hidden={!browser || !isMobile()}>
+            <div class="touch-row">
+              <button class="touch-btn rotate" ontouchstart={() => handleTouch('rotate')}>
+                <span>↻</span>
+              </button>
+            </div>
+            <div class="touch-row">
+              <button class="touch-btn" ontouchstart={() => handleTouch('left')}>
+                <span>←</span>
+              </button>
+              <button class="touch-btn" ontouchstart={() => handleTouch('down')} 
+                      ontouchend={() => handleTouch('endDown')}>
+                <span>↓</span>
+              </button>
+              <button class="touch-btn" ontouchstart={() => handleTouch('right')}>
+                <span>→</span>  
+              </button>
+            </div>
+            <div class="touch-row">
+              <button class="touch-btn" ontouchstart={() => handleTouch('drop')}>
+                <span>⤓</span>
+              </button>
+            </div>
+          </div>
+        
         </div>
       </div>
   
@@ -543,13 +599,10 @@ function handleKeyup(event: KeyboardEvent) {
         </div>
       </div>
     </div>
-  
-    <!-- Leaderboard -->
     <div class="leaderboard-section">
       <LeaderBoard selectedGame="tetris" />
     </div>
   
-    <!-- Validation Section for verifiers -->
     {#if $wallet.isVerifier}
       <div class="validation-section">
         <Validate selectedGame="tetris" />
@@ -746,4 +799,56 @@ function handleKeyup(event: KeyboardEvent) {
         margin: 0 auto;
       }
     }
+  
+  .touch-controls {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 100;
+    padding: 10px;
+  }
+
+  .touch-controls.hidden {
+    display: none;
+  }
+
+  .touch-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+  }
+
+  .touch-btn {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .touch-btn:active {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .touch-btn.rotate {
+    background: rgba(var(--color-primary-rgb), 0.3);
+  }
+
+  @media (min-width: 769px) {
+    .touch-controls {
+      display: none;
+    }
+  }
+
   </style>
